@@ -1,0 +1,2583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart QR Menu - Bangladesh Restaurant</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- React and ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel Standalone for JSX transformation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Custom Styles -->
+    <style>
+        /* Custom scrollbar for mobile feel */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* Mobile app-like transitions */
+        .slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Tab indicator animation */
+        .tab-indicator {
+            transition: transform 0.3s ease-out;
+        }
+        
+        /* Cart badge animation */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .pulse {
+            animation: pulse 0.3s ease-out;
+        }
+        
+        /* Custom checkbox for filters */
+        .custom-checkbox {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #d1d5db;
+            border-radius: 4px;
+            position: relative;
+            cursor: pointer;
+        }
+        .custom-checkbox:checked {
+            background-color: #10b981;
+            border-color: #10b981;
+        }
+        .custom-checkbox:checked::after {
+            content: '\2713';
+            position: absolute;
+            top: -2px;
+            left: 3px;
+            color: white;
+            font-size: 14px;
+        }
+        
+        /* Loading spinner */
+        .spinner {
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 3px solid #3498db;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Order status timeline */
+        .timeline-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: #e5e7eb;
+            position: relative;
+            z-index: 1;
+        }
+        .timeline-dot.active {
+            background-color: #10b981;
+        }
+        .timeline-line {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            width: 100%;
+            height: 2px;
+            background-color: #e5e7eb;
+            z-index: 0;
+        }
+        .timeline-line.active {
+            background-color: #10b981;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // ==================== APP STATE & UTILITIES ====================
+        
+        // FontAwesome icons mapping (simplified for demo)
+        const icons = {
+            home: 'fa-home',
+            user: 'fa-user',
+            shoppingCart: 'fa-shopping-cart',
+            search: 'fa-search',
+            filter: 'fa-filter',
+            star: 'fa-star',
+            clock: 'fa-clock',
+            mapMarkerAlt: 'fa-map-marker-alt',
+            phone: 'fa-phone',
+            envelope: 'fa-envelope',
+            check: 'fa-check',
+            times: 'fa-times',
+            plus: 'fa-plus',
+            minus: 'fa-minus',
+            arrowLeft: 'fa-arrow-left',
+            arrowRight: 'fa-arrow-right',
+            truck: 'fa-truck',
+            utensils: 'fa-utensils',
+            receipt: 'fa-receipt',
+            tag: 'fa-tag',
+            fire: 'fa-fire',
+            leaf: 'fa-leaf',
+            seedling: 'fa-seedling',
+            exclamationTriangle: 'fa-exclamation-triangle',
+            infoCircle: 'fa-info-circle',
+            chevronDown: 'fa-chevron-down',
+            chevronUp: 'fa-chevron-up',
+            bars: 'fa-bars',
+            cog: 'fa-cog',
+            signOutAlt: 'fa-sign-out-alt',
+            history: 'fa-history',
+            edit: 'fa-edit',
+            trash: 'fa-trash',
+            creditCard: 'fa-credit-card',
+            moneyBillWave: 'fa-money-bill-wave',
+            box: 'fa-box',
+            percentage: 'fa-percentage',
+            qrcode: 'fa-qrcode',
+            table: 'fa-table',
+            store: 'fa-store',
+            motorcycle: 'fa-motorcycle',
+            map: 'fa-map',
+            bell: 'fa-bell',
+            heart: 'fa-heart',
+            share: 'fa-share',
+            print: 'fa-print',
+            download: 'fa-download',
+            upload: 'fa-upload',
+            sync: 'fa-sync',
+            spinner: 'fa-spinner fa-spin'
+        };
+        
+        // Bangladesh context
+        const BD_CONTEXT = {
+            currency: 'BDT',
+            currencySymbol: '৳',
+            language: 'en', // 'en' or 'bn'
+            taxRate: 0.05, // 5% tax
+            serviceChargeRate: 0.1, // 10% service charge
+            deliveryFee: 50, // Fixed delivery fee in BDT
+            minOrderAmount: 200, // Minimum order amount in BDT
+            promoCodes: {
+                'BDT50OFF': { type: 'fixed', value: 50, minOrder: 300 },
+                'FREESHIP': { type: 'shipping', value: 0, minOrder: 500 },
+                '10PERCENT': { type: 'percentage', value: 0.1, minOrder: 400 }
+            }
+        };
+        
+        // LocalStorage utilities
+        const storage = {
+            get: (key, defaultValue = null) => {
+                try {
+                    const item = localStorage.getItem(key);
+                    return item ? JSON.parse(item) : defaultValue;
+                } catch (e) {
+                    console.error('Error getting from localStorage:', e);
+                    return defaultValue;
+                }
+            },
+            set: (key, value) => {
+                try {
+                    localStorage.setItem(key, JSON.stringify(value));
+                } catch (e) {
+                    console.error('Error setting to localStorage:', e);
+                }
+            },
+            remove: (key) => {
+                try {
+                    localStorage.removeItem(key);
+                } catch (e) {
+                    console.error('Error removing from localStorage:', e);
+                }
+            },
+            clear: () => {
+                try {
+                    localStorage.clear();
+                } catch (e) {
+                    console.error('Error clearing localStorage:', e);
+                }
+            }
+        };
+        
+        // Initialize demo data if not exists
+        const initializeDemoData = () => {
+            if (!storage.get('branches')) {
+                storage.set('branches', [
+                    {
+                        id: 'dhaka-dhanmondi',
+                        name: 'Dhanmondi Branch',
+                        address: 'Road 8, Dhanmondi, Dhaka',
+                        phone: '+880 2 8616637',
+                        email: 'dhanmondi@restaurant.com',
+                        coverImage: 'https://picsum.photos/seed/dhanmondi/800/400.jpg',
+                        logo: 'https://picsum.photos/seed/logo1/200/200.jpg',
+                        coordinates: { lat: 23.7465, lng: 90.3760 },
+                        openingHours: { open: '10:00', close: '22:00' },
+                        isOpen: true,
+                        rating: 4.5,
+                        reviewCount: 234
+                    },
+                    {
+                        id: 'dhaka-gulshan',
+                        name: 'Gulshan Branch',
+                        address: 'Gulshan Avenue, Gulshan-1, Dhaka',
+                        phone: '+880 2 8835462',
+                        email: 'gulshan@restaurant.com',
+                        coverImage: 'https://picsum.photos/seed/gulshan/800/400.jpg',
+                        logo: 'https://picsum.photos/seed/logo2/200/200.jpg',
+                        coordinates: { lat: 23.7937, lng: 90.4064 },
+                        openingHours: { open: '11:00', close: '23:00' },
+                        isOpen: true,
+                        rating: 4.7,
+                        reviewCount: 312
+                    },
+                    {
+                        id: 'chittagong',
+                        name: 'Chittagong Branch',
+                        address: 'Agrabad, Chittagong',
+                        phone: '+880 31 654321',
+                        email: 'ctg@restaurant.com',
+                        coverImage: 'https://picsum.photos/seed/chittagong/800/400.jpg',
+                        logo: 'https://picsum.photos/seed/logo3/200/200.jpg',
+                        coordinates: { lat: 22.3569, lng: 91.7832 },
+                        openingHours: { open: '10:30', close: '22:30' },
+                        isOpen: false,
+                        rating: 4.3,
+                        reviewCount: 156
+                    }
+                ]);
+            }
+            
+            if (!storage.get('menu')) {
+                storage.set('menu', {
+                    'dhaka-dhanmondi': [
+                        {
+                            id: 'item1',
+                            name: 'Biryani',
+                            description: 'Traditional aromatic rice dish with meat and spices',
+                            price: 280,
+                            image: 'https://picsum.photos/seed/biryani/300/200.jpg',
+                            category: 'Main Course',
+                            badges: ['spicy', 'popular'],
+                            variants: [
+                                { name: 'Chicken', price: 280 },
+                                { name: 'Mutton', price: 350 },
+                                { name: 'Beef', price: 320 }
+                            ],
+                            addons: [
+                                { name: 'Extra Raita', price: 30 },
+                                { name: 'Salad', price: 20 }
+                            ],
+                            rating: 4.6,
+                            reviewCount: 89,
+                            isNew: false,
+                            isVegetarian: false,
+                            containsNuts: false
+                        },
+                        {
+                            id: 'item2',
+                            name: 'Kacchi Biryani',
+                            description: 'Premium basmati rice with tender mutton and aromatic spices',
+                            price: 450,
+                            image: 'https://picsum.photos/seed/kacchi/300/200.jpg',
+                            category: 'Main Course',
+                            badges: ['spicy', 'chef-special'],
+                            variants: [
+                                { name: 'Mutton', price: 450 },
+                                { name: 'Beef', price: 420 }
+                            ],
+                            addons: [
+                                { name: 'Borhani', price: 40 },
+                                { name: 'Salad', price: 20 }
+                            ],
+                            rating: 4.8,
+                            reviewCount: 124,
+                            isNew: false,
+                            isVegetarian: false,
+                            containsNuts: false
+                        },
+                        {
+                            id: 'item3',
+                            name: 'Chicken Tikka',
+                            description: 'Grilled chicken marinated in yogurt and spices',
+                            price: 220,
+                            image: 'https://picsum.photos/seed/tikka/300/200.jpg',
+                            category: 'Starters',
+                            badges: ['popular'],
+                            variants: [
+                                { name: 'Half Plate', price: 220 },
+                                { name: 'Full Plate', price: 380 }
+                            ],
+                            addons: [
+                                { name: 'Mint Chutney', price: 15 },
+                                { name: 'Onion Rings', price: 25 }
+                            ],
+                            rating: 4.5,
+                            reviewCount: 67,
+                            isNew: false,
+                            isVegetarian: false,
+                            containsNuts: false
+                        },
+                        {
+                            id: 'item4',
+                            name: 'Vegetable Pulao',
+                            description: 'Fragrant rice cooked with mixed vegetables and spices',
+                            price: 180,
+                            image: 'https://picsum.photos/seed/pulao/300/200.jpg',
+                            category: 'Main Course',
+                            badges: ['vegetarian'],
+                            variants: [
+                                { name: 'Regular', price: 180 },
+                                { name: 'Special', price: 220 }
+                            ],
+                            addons: [
+                                { name: 'Raita', price: 30 },
+                                { name: 'Papad', price: 15 }
+                            ],
+                            rating: 4.3,
+                            reviewCount: 45,
+                            isNew: true,
+                            isVegetarian: true,
+                            containsNuts: false
+                        },
+                        {
+                            id: 'item5',
+                            name: 'Fuchka',
+                            description: 'Crispy hollow spheres filled with spicy tamarind water',
+                            price: 60,
+                            image: 'https://picsum.photos/seed/fuchka/300/200.jpg',
+                            category: 'Snacks',
+                            badges: ['popular', 'spicy'],
+                            variants: [
+                                { name: '6 Pieces', price: 60 },
+                                { name: '10 Pieces', price: 90 }
+                            ],
+                            addons: [
+                                { name: 'Extra Tamarind Water', price: 10 }
+                            ],
+                            rating: 4.7,
+                            reviewCount: 156,
+                            isNew: false,
+                            isVegetarian: true,
+                            containsNuts: false
+                        },
+                        {
+                            id: 'item6',
+                            name: 'Bengali Thali',
+                            description: 'Complete meal with rice, dal, vegetables, fish curry and dessert',
+                            price: 350,
+                            image: 'https://picsum.photos/seed/thali/300/200.jpg',
+                            category: 'Main Course',
+                            badges: ['popular'],
+                            variants: [
+                                { name: 'Regular', price: 350 },
+                                { name: 'Large', price: 450 }
+                            ],
+                            addons: [
+                                { name: 'Extra Fish', price: 80 },
+                                { name: 'Extra Rice', price: 30 }
+                            ],
+                            rating: 4.6,
+                            reviewCount: 98,
+                            isNew: false,
+                            isVegetarian: false,
+                            containsNuts: false
+                        },
+                        {
+                            id: 'item7',
+                            name: 'Misti Doi',
+                            description: 'Traditional sweet yogurt',
+                            price: 50,
+                            image: 'https://picsum.photos/seed/misti/300/200.jpg',
+                            category: 'Desserts',
+                            badges: ['vegetarian'],
+                            variants: [
+                                { name: 'Small', price: 50 },
+                                { name: 'Large', price: 80 }
+                            ],
+                            addons: [],
+                            rating: 4.4,
+                            reviewCount: 76,
+                            isNew: false,
+                            isVegetarian: true,
+                            containsNuts: false
+                        },
+                        {
+                            id: 'item8',
+                            name: 'Roshogolla',
+                            description: 'Soft spongy cheese balls in sugar syrup',
+                            price: 40,
+                            image: 'https://picsum.photos/seed/roshogolla/300/200.jpg',
+                            category: 'Desserts',
+                            badges: ['vegetarian'],
+                            variants: [
+                                { name: '4 Pieces', price: 40 },
+                                { name: '8 Pieces', price: 70 }
+                            ],
+                            addons: [],
+                            rating: 4.5,
+                            reviewCount: 62,
+                            isNew: false,
+                            isVegetarian: true,
+                            containsNuts: false
+                        },
+                        {
+                            id: 'item9',
+                            name: 'Lassi',
+                            description: 'Refreshing yogurt drink',
+                            price: 70,
+                            image: 'https://picsum.photos/seed/lassi/300/200.jpg',
+                            category: 'Beverages',
+                            badges: ['vegetarian'],
+                            variants: [
+                                { name: 'Sweet', price: 70 },
+                                { name: 'Salty', price: 70 },
+                                { name: 'Mango', price: 90 }
+                            ],
+                            addons: [],
+                            rating: 4.3,
+                            reviewCount: 48,
+                            isNew: true,
+                            isVegetarian: true,
+                            containsNuts: false
+                        },
+                        {
+                            id: 'item10',
+                            name: 'Alu Kabli',
+                            description: 'Spicy potato chaat with chickpeas',
+                            price: 80,
+                            image: 'https://picsum.photos/seed/alukabli/300/200.jpg',
+                            category: 'Snacks',
+                            badges: ['vegetarian', 'spicy'],
+                            variants: [
+                                { name: 'Regular', price: 80 },
+                                { name: 'Large', price: 120 }
+                            ],
+                            addons: [
+                                { name: 'Extra Lemon', price: 5 },
+                                { name: 'Extra Onion', price: 10 }
+                            ],
+                            rating: 4.2,
+                            reviewCount: 34,
+                            isNew: false,
+                            isVegetarian: true,
+                            containsNuts: false
+                        }
+                    ],
+                    'dhaka-gulshan': [
+                        // Similar menu items for Gulshan branch
+                        {
+                            id: 'gulshan-item1',
+                            name: 'Premium Biryani',
+                            description: 'Special biryani with premium ingredients',
+                            price: 350,
+                            image: 'https://picsum.photos/seed/premium-biryani/300/200.jpg',
+                            category: 'Main Course',
+                            badges: ['spicy', 'chef-special'],
+                            variants: [
+                                { name: 'Chicken', price: 350 },
+                                { name: 'Mutton', price: 420 }
+                            ],
+                            addons: [
+                                { name: 'Extra Raita', price: 30 },
+                                { name: 'Salad', price: 20 }
+                            ],
+                            rating: 4.7,
+                            reviewCount: 112,
+                            isNew: false,
+                            isVegetarian: false,
+                            containsNuts: false
+                        }
+                        // Add more items as needed
+                    ],
+                    'chittagong': [
+                        // Similar menu items for Chittagong branch
+                        {
+                            id: 'ctg-item1',
+                            name: 'Mezban Beef',
+                            description: 'Traditional Chittagong style beef curry',
+                            price: 380,
+                            image: 'https://picsum.photos/seed/mezban/300/200.jpg',
+                            category: 'Main Course',
+                            badges: ['spicy', 'popular'],
+                            variants: [
+                                { name: 'Regular', price: 380 },
+                                { name: 'Large', price: 480 }
+                            ],
+                            addons: [
+                                { name: 'Extra Rice', price: 30 },
+                                { name: 'Salad', price: 20 }
+                            ],
+                            rating: 4.6,
+                            reviewCount: 87,
+                            isNew: false,
+                            isVegetarian: false,
+                            containsNuts: false
+                        }
+                        // Add more items as needed
+                    ]
+                });
+            }
+        };
+        
+        // Initialize demo data on first load
+        initializeDemoData();
+        
+        // ==================== APP COMPONENTS ====================
+        
+        // Icon Component
+        const Icon = ({ name, className = '' }) => {
+            return <i className={`fa ${icons[name] || icons.infoCircle} ${className}`}></i>;
+        };
+        
+        // Language Toggle Component
+        const LanguageToggle = () => {
+            const [language, setLanguage] = React.useState(BD_CONTEXT.language);
+            
+            const toggleLanguage = () => {
+                const newLanguage = language === 'en' ? 'bn' : 'en';
+                setLanguage(newLanguage);
+                BD_CONTEXT.language = newLanguage;
+            };
+            
+            return (
+                <button 
+                    onClick={toggleLanguage}
+                    className="p-2 rounded-full bg-white shadow-md hover:shadow-lg transition-shadow"
+                    aria-label="Toggle language"
+                >
+                    <span className="text-sm font-medium">{language === 'en' ? 'EN' : 'বাং'}</span>
+                </button>
+            );
+        };
+        
+        // Header Component
+        const Header = ({ title, showBack, showLanguageToggle, onBackClick }) => {
+            return (
+                <header className="sticky top-0 z-40 bg-white shadow-sm">
+                    <div className="flex items-center justify-between p-4">
+                        {showBack && (
+                            <button 
+                                onClick={onBackClick}
+                                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                                aria-label="Go back"
+                            >
+                                <Icon name="arrowLeft" className="text-gray-700" />
+                            </button>
+                        )}
+                        <h1 className="text-xl font-bold text-gray-800 flex-1 text-center">{title}</h1>
+                        {showLanguageToggle && <LanguageToggle />}
+                        {!showBack && !showLanguageToggle && <div className="w-10"></div>}
+                    </div>
+                </header>
+            );
+        };
+        
+        // Loading Component
+        const Loading = () => {
+            return (
+                <div className="flex justify-center items-center h-64">
+                    <div className="spinner"></div>
+                </div>
+            );
+        };
+        
+        // Toast Notification Component
+        const Toast = ({ message, type, isVisible, onClose }) => {
+            React.useEffect(() => {
+                if (isVisible) {
+                    const timer = setTimeout(() => {
+                        onClose();
+                    }, 3000);
+                    return () => clearTimeout(timer);
+                }
+            }, [isVisible, onClose]);
+            
+            if (!isVisible) return null;
+            
+            const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+            
+            return (
+                <div className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg fade-in`}>
+                    <div className="flex items-center">
+                        <Icon name={type === 'success' ? 'check' : type === 'error' ? 'times' : 'infoCircle'} className="mr-2" />
+                        <span>{message}</span>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Branch Card Component
+        const BranchCard = ({ branch, onSelect }) => {
+            const { name, address, coverImage, isOpen, rating, reviewCount, openingHours } = branch;
+            
+            return (
+                <div 
+                    className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer transform transition-transform hover:scale-105"
+                    onClick={() => onSelect(branch)}
+                >
+                    <div className="relative h-40">
+                        <img src={coverImage} alt={name} className="w-full h-full object-cover" />
+                        <div className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-medium ${isOpen ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                            {isOpen ? 'Open' : 'Closed'}
+                        </div>
+                    </div>
+                    <div className="p-4">
+                        <h3 className="font-bold text-lg text-gray-800 mb-1">{name}</h3>
+                        <p className="text-sm text-gray-600 mb-2 flex items-center">
+                            <Icon name="mapMarkerAlt" className="mr-1 text-gray-500" />
+                            {address}
+                        </p>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                                <Icon name="star" className="text-yellow-400 mr-1" />
+                                <span className="text-sm font-medium">{rating}</span>
+                                <span className="text-xs text-gray-500 ml-1">({reviewCount})</span>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                                <Icon name="clock" className="mr-1" />
+                                {openingHours.open} - {openingHours.close}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Home Component
+        const Home = ({ onBranchSelect }) => {
+            const [branches, setBranches] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+            
+            React.useEffect(() => {
+                // Load branches from localStorage
+                const loadedBranches = storage.get('branches', []);
+                setBranches(loadedBranches);
+                setLoading(false);
+            }, []);
+            
+            if (loading) {
+                return <Loading />;
+            }
+            
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <Header title="Smart QR Menu" showLanguageToggle />
+                    
+                    <div className="p-4">
+                        {/* Hero Section */}
+                        <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-lg p-6 text-white mb-6">
+                            <h2 className="text-2xl font-bold mb-2">Welcome to Our Restaurant</h2>
+                            <p className="mb-4">Select a branch to start ordering</p>
+                            <div className="flex items-center">
+                                <Icon name="qrcode" className="text-3xl mr-3" />
+                                <span>Scan QR code or select branch below</span>
+                            </div>
+                        </div>
+                        
+                        {/* Branch Selection */}
+                        <h3 className="text-lg font-semibold text-gray-800 mb-3">Select Branch</h3>
+                        <div className="space-y-4">
+                            {branches.map(branch => (
+                                <BranchCard 
+                                    key={branch.id} 
+                                    branch={branch} 
+                                    onSelect={onBranchSelect} 
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Menu Item Component
+        const MenuItem = ({ item, onAddToCart, onViewDetails }) => {
+            const { name, description, price, image, badges, rating, reviewCount, isNew } = item;
+            
+            return (
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div className="relative h-40">
+                        <img src={image} alt={name} className="w-full h-full object-cover" />
+                        {isNew && (
+                            <div className="absolute top-2 left-2 bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                                New
+                            </div>
+                        )}
+                        {badges.includes('popular') && (
+                            <div className="absolute top-2 right-2 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                                Popular
+                            </div>
+                        )}
+                    </div>
+                    <div className="p-4">
+                        <h3 className="font-bold text-lg text-gray-800 mb-1">{name}</h3>
+                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">{description}</p>
+                        <div className="flex items-center mb-2">
+                            <Icon name="star" className="text-yellow-400 mr-1" />
+                            <span className="text-sm font-medium">{rating}</span>
+                            <span className="text-xs text-gray-500 ml-1">({reviewCount})</span>
+                            {badges.includes('spicy') && (
+                                <span className="ml-2 text-red-500">
+                                    <Icon name="fire" />
+                                </span>
+                            )}
+                            {badges.includes('vegetarian') && (
+                                <span className="ml-2 text-green-500">
+                                    <Icon name="leaf" />
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-lg font-bold text-gray-800">
+                                {BD_CONTEXT.currencySymbol}{price}
+                            </span>
+                            <div className="flex space-x-2">
+                                <button 
+                                    onClick={() => onViewDetails(item)}
+                                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                                    aria-label="View details"
+                                >
+                                    <Icon name="infoCircle" className="text-gray-700" />
+                                </button>
+                                <button 
+                                    onClick={() => onAddToCart(item)}
+                                    className="p-2 rounded-full bg-orange-500 hover:bg-orange-600 text-white transition-colors"
+                                    aria-label="Add to cart"
+                                >
+                                    <Icon name="plus" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Item Detail Modal Component
+        const ItemDetailModal = ({ item, isOpen, onClose, onAddToCart }) => {
+            const [quantity, setQuantity] = React.useState(1);
+            const [selectedVariant, setSelectedVariant] = React.useState(item.variants ? item.variants[0] : null);
+            const [selectedAddons, setSelectedAddons] = React.useState([]);
+            
+            if (!isOpen || !item) return null;
+            
+            const { name, description, price, image, badges, rating, reviewCount, variants, addons } = item;
+            
+            const calculatePrice = () => {
+                let itemPrice = selectedVariant ? selectedVariant.price : price;
+                const addonsPrice = selectedAddons.reduce((total, addon) => total + addon.price, 0);
+                return (itemPrice + addonsPrice) * quantity;
+            };
+            
+            const handleAddToCart = () => {
+                const cartItem = {
+                    ...item,
+                    quantity,
+                    variant: selectedVariant,
+                    addons: selectedAddons,
+                    totalPrice: calculatePrice()
+                };
+                onAddToCart(cartItem);
+                onClose();
+            };
+            
+            const toggleAddon = (addon) => {
+                if (selectedAddons.find(a => a.name === addon.name)) {
+                    setSelectedAddons(selectedAddons.filter(a => a.name !== addon.name));
+                } else {
+                    setSelectedAddons([...selectedAddons, addon]);
+                }
+            };
+            
+            return (
+                <div className="fixed inset-0 z-50 flex flex-col bg-white">
+                    <div className="sticky top-0 z-10 bg-white shadow-sm">
+                        <div className="flex items-center justify-between p-4">
+                            <button 
+                                onClick={onClose}
+                                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                                aria-label="Close"
+                            >
+                                <Icon name="times" className="text-gray-700" />
+                            </button>
+                            <h2 className="text-lg font-semibold">Item Details</h2>
+                            <div className="w-10"></div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto">
+                        <div className="relative h-64">
+                            <img src={image} alt={name} className="w-full h-full object-cover" />
+                        </div>
+                        
+                        <div className="p-4">
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">{name}</h3>
+                            <p className="text-gray-600 mb-4">{description}</p>
+                            
+                            <div className="flex items-center mb-4">
+                                <Icon name="star" className="text-yellow-400 mr-1" />
+                                <span className="font-medium">{rating}</span>
+                                <span className="text-gray-500 ml-1">({reviewCount} reviews)</span>
+                            </div>
+                            
+                            {variants && variants.length > 0 && (
+                                <div className="mb-4">
+                                    <h4 className="font-semibold text-gray-800 mb-2">Choose Variant</h4>
+                                    <div className="space-y-2">
+                                        {variants.map(variant => (
+                                            <div 
+                                                key={variant.name}
+                                                className={`p-3 border rounded-lg cursor-pointer ${selectedVariant && selectedVariant.name === variant.name ? 'border-orange-500 bg-orange-50' : 'border-gray-200'}`}
+                                                onClick={() => setSelectedVariant(variant)}
+                                            >
+                                                <div className="flex justify-between items-center">
+                                                    <span>{variant.name}</span>
+                                                    <span className="font-medium">{BD_CONTEXT.currencySymbol}{variant.price}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {addons && addons.length > 0 && (
+                                <div className="mb-4">
+                                    <h4 className="font-semibold text-gray-800 mb-2">Add-ons</h4>
+                                    <div className="space-y-2">
+                                        {addons.map(addon => (
+                                            <div 
+                                                key={addon.name}
+                                                className={`p-3 border rounded-lg cursor-pointer ${selectedAddons.find(a => a.name === addon.name) ? 'border-orange-500 bg-orange-50' : 'border-gray-200'}`}
+                                                onClick={() => toggleAddon(addon)}
+                                            >
+                                                <div className="flex justify-between items-center">
+                                                    <span>{addon.name}</span>
+                                                    <span className="font-medium">+{BD_CONTEXT.currencySymbol}{addon.price}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div className="mb-6">
+                                <h4 className="font-semibold text-gray-800 mb-2">Quantity</h4>
+                                <div className="flex items-center">
+                                    <button 
+                                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                                        className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                                        aria-label="Decrease quantity"
+                                    >
+                                        <Icon name="minus" className="text-gray-700" />
+                                    </button>
+                                    <span className="mx-4 text-lg font-medium">{quantity}</span>
+                                    <button 
+                                        onClick={() => setQuantity(quantity + 1)}
+                                        className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                                        aria-label="Increase quantity"
+                                    >
+                                        <Icon name="plus" className="text-gray-700" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="sticky bottom-0 bg-white border-t p-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-lg font-semibold">Total</span>
+                            <span className="text-xl font-bold text-orange-500">{BD_CONTEXT.currencySymbol}{calculatePrice()}</span>
+                        </div>
+                        <button 
+                            onClick={handleAddToCart}
+                            className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors"
+                        >
+                            Add to Cart
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Cart Component
+        const Cart = ({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem, onCheckout }) => {
+            const [promoCode, setPromoCode] = React.useState('');
+            const [promoApplied, setPromoApplied] = React.useState(null);
+            const [orderType, setOrderType] = React.useState('dine-in');
+            const [tableNumber, setTableNumber] = React.useState('');
+            const [deliveryAddress, setDeliveryAddress] = React.useState('');
+            const [contactNumber, setContactNumber] = React.useState('');
+            
+            const calculateSubtotal = () => {
+                return items.reduce((total, item) => total + item.totalPrice, 0);
+            };
+            
+            const calculateTax = () => {
+                return calculateSubtotal() * BD_CONTEXT.taxRate;
+            };
+            
+            const calculateServiceCharge = () => {
+                return calculateSubtotal() * BD_CONTEXT.serviceChargeRate;
+            };
+            
+            const calculateDeliveryFee = () => {
+                return orderType === 'delivery' ? BD_CONTEXT.deliveryFee : 0;
+            };
+            
+            const calculateDiscount = () => {
+                if (!promoApplied) return 0;
+                
+                const subtotal = calculateSubtotal();
+                if (promoApplied.type === 'fixed') {
+                    return Math.min(promoApplied.value, subtotal);
+                } else if (promoApplied.type === 'percentage') {
+                    return subtotal * promoApplied.value;
+                } else if (promoApplied.type === 'shipping' && orderType === 'delivery') {
+                    return calculateDeliveryFee();
+                }
+                return 0;
+            };
+            
+            const calculateTotal = () => {
+                const subtotal = calculateSubtotal();
+                const tax = calculateTax();
+                const serviceCharge = calculateServiceCharge();
+                const deliveryFee = calculateDeliveryFee();
+                const discount = calculateDiscount();
+                
+                return subtotal + tax + serviceCharge + deliveryFee - discount;
+            };
+            
+            const applyPromoCode = () => {
+                const promo = BD_CONTEXT.promoCodes[promoCode.toUpperCase()];
+                if (promo) {
+                    const subtotal = calculateSubtotal();
+                    if (subtotal >= promo.minOrder) {
+                        setPromoApplied(promo);
+                    } else {
+                        alert(`Minimum order amount is ${BD_CONTEXT.currencySymbol}${promo.minOrder}`);
+                    }
+                } else {
+                    alert('Invalid promo code');
+                }
+            };
+            
+            const removePromoCode = () => {
+                setPromoCode('');
+                setPromoApplied(null);
+            };
+            
+            const handleCheckout = () => {
+                if (items.length === 0) {
+                    alert('Your cart is empty');
+                    return;
+                }
+                
+                if (orderType === 'dine-in' && !tableNumber) {
+                    alert('Please enter your table number');
+                    return;
+                }
+                
+                if (orderType === 'delivery' && (!deliveryAddress || !contactNumber)) {
+                    alert('Please enter delivery address and contact number');
+                    return;
+                }
+                
+                const orderData = {
+                    items,
+                    subtotal: calculateSubtotal(),
+                    tax: calculateTax(),
+                    serviceCharge: calculateServiceCharge(),
+                    deliveryFee: calculateDeliveryFee(),
+                    discount: calculateDiscount(),
+                    total: calculateTotal(),
+                    promoCode: promoApplied ? promoCode : null,
+                    orderType,
+                    tableNumber: orderType === 'dine-in' ? tableNumber : null,
+                    deliveryAddress: orderType === 'delivery' ? deliveryAddress : null,
+                    contactNumber: orderType === 'delivery' ? contactNumber : null
+                };
+                
+                onCheckout(orderData);
+            };
+            
+            if (!isOpen) return null;
+            
+            return (
+                <div className="fixed inset-0 z-50 flex flex-col bg-white">
+                    <div className="sticky top-0 z-10 bg-white shadow-sm">
+                        <div className="flex items-center justify-between p-4">
+                            <button 
+                                onClick={onClose}
+                                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                                aria-label="Close"
+                            >
+                                <Icon name="arrowLeft" className="text-gray-700" />
+                            </button>
+                            <h2 className="text-lg font-semibold">Your Cart</h2>
+                            <div className="w-10"></div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto">
+                        {items.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+                                <Icon name="shoppingCart" className="text-4xl mb-3" />
+                                <p>Your cart is empty</p>
+                            </div>
+                        ) : (
+                            <div className="p-4 space-y-4">
+                                {items.map((item, index) => (
+                                    <div key={index} className="bg-white border rounded-lg p-3">
+                                        <div className="flex items-start">
+                                            <img src={item.image} alt={item.name} className="w-16 h-16 rounded-lg object-cover mr-3" />
+                                            <div className="flex-1">
+                                                <h3 className="font-medium text-gray-800">{item.name}</h3>
+                                                {item.variant && (
+                                                    <p className="text-sm text-gray-600">{item.variant.name}</p>
+                                                )}
+                                                {item.addons && item.addons.length > 0 && (
+                                                    <p className="text-sm text-gray-600">
+                                                        {item.addons.map(a => a.name).join(', ')}
+                                                    </p>
+                                                )}
+                                                <div className="flex items-center justify-between mt-2">
+                                                    <span className="font-medium text-orange-500">
+                                                        {BD_CONTEXT.currencySymbol}{item.totalPrice}
+                                                    </span>
+                                                    <div className="flex items-center">
+                                                        <button 
+                                                            onClick={() => onUpdateQuantity(index, item.quantity - 1)}
+                                                            className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                                                            aria-label="Decrease quantity"
+                                                        >
+                                                            <Icon name="minus" className="text-xs text-gray-700" />
+                                                        </button>
+                                                        <span className="mx-2 text-sm font-medium">{item.quantity}</span>
+                                                        <button 
+                                                            onClick={() => onUpdateQuantity(index, item.quantity + 1)}
+                                                            className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                                                            aria-label="Increase quantity"
+                                                        >
+                                                            <Icon name="plus" className="text-xs text-gray-700" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => onRemoveItem(index)}
+                                                            className="ml-2 p-1 rounded-full bg-red-100 hover:bg-red-200 transition-colors"
+                                                            aria-label="Remove item"
+                                                        >
+                                                            <Icon name="trash" className="text-xs text-red-600" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                
+                                <div className="border-t pt-4">
+                                    <h3 className="font-semibold text-gray-800 mb-3">Order Type</h3>
+                                    <div className="space-y-2">
+                                        <label className="flex items-center p-3 border rounded-lg cursor-pointer">
+                                            <input 
+                                                type="radio" 
+                                                name="orderType" 
+                                                value="dine-in"
+                                                checked={orderType === 'dine-in'}
+                                                onChange={() => setOrderType('dine-in')}
+                                                className="mr-3"
+                                            />
+                                            <Icon name="utensils" className="mr-2 text-orange-500" />
+                                            <div className="flex-1">
+                                                <span className="font-medium">Dine-in</span>
+                                                <p className="text-sm text-gray-600">Eat at the restaurant</p>
+                                            </div>
+                                        </label>
+                                        <label className="flex items-center p-3 border rounded-lg cursor-pointer">
+                                            <input 
+                                                type="radio" 
+                                                name="orderType" 
+                                                value="takeaway"
+                                                checked={orderType === 'takeaway'}
+                                                onChange={() => setOrderType('takeaway')}
+                                                className="mr-3"
+                                            />
+                                            <Icon name="box" className="mr-2 text-orange-500" />
+                                            <div className="flex-1">
+                                                <span className="font-medium">Takeaway</span>
+                                                <p className="text-sm text-gray-600">Pick up your order</p>
+                                            </div>
+                                        </label>
+                                        <label className="flex items-center p-3 border rounded-lg cursor-pointer">
+                                            <input 
+                                                type="radio" 
+                                                name="orderType" 
+                                                value="delivery"
+                                                checked={orderType === 'delivery'}
+                                                onChange={() => setOrderType('delivery')}
+                                                className="mr-3"
+                                            />
+                                            <Icon name="motorcycle" className="mr-2 text-orange-500" />
+                                            <div className="flex-1">
+                                                <span className="font-medium">Delivery</span>
+                                                <p className="text-sm text-gray-600">Get it delivered</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                {orderType === 'dine-in' && (
+                                    <div className="border-t pt-4">
+                                        <h3 className="font-semibold text-gray-800 mb-3">Table Information</h3>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Table Number or QR Code"
+                                            value={tableNumber}
+                                            onChange={(e) => setTableNumber(e.target.value)}
+                                            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                        />
+                                    </div>
+                                )}
+                                
+                                {orderType === 'delivery' && (
+                                    <div className="border-t pt-4">
+                                        <h3 className="font-semibold text-gray-800 mb-3">Delivery Information</h3>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Delivery Address"
+                                            value={deliveryAddress}
+                                            onChange={(e) => setDeliveryAddress(e.target.value)}
+                                            className="w-full p-3 border rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                        />
+                                        <input 
+                                            type="tel" 
+                                            placeholder="Contact Number"
+                                            value={contactNumber}
+                                            onChange={(e) => setContactNumber(e.target.value)}
+                                            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                        />
+                                    </div>
+                                )}
+                                
+                                <div className="border-t pt-4">
+                                    <h3 className="font-semibold text-gray-800 mb-3">Promo Code</h3>
+                                    <div className="flex">
+                                        <input 
+                                            type="text" 
+                                            placeholder="Enter promo code"
+                                            value={promoCode}
+                                            onChange={(e) => setPromoCode(e.target.value)}
+                                            disabled={promoApplied !== null}
+                                            className="flex-1 p-3 border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                        />
+                                        {promoApplied ? (
+                                            <button 
+                                                onClick={removePromoCode}
+                                                className="px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-r-lg transition-colors"
+                                            >
+                                                Remove
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                onClick={applyPromoCode}
+                                                className="px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-r-lg transition-colors"
+                                            >
+                                                Apply
+                                            </button>
+                                        )}
+                                    </div>
+                                    {promoApplied && (
+                                        <div className="mt-2 p-2 bg-green-50 text-green-700 rounded-lg text-sm">
+                                            Promo code applied successfully!
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div className="border-t pt-4">
+                                    <h3 className="font-semibold text-gray-800 mb-3">Order Summary</h3>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Subtotal</span>
+                                            <span>{BD_CONTEXT.currencySymbol}{calculateSubtotal()}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Tax (5%)</span>
+                                            <span>{BD_CONTEXT.currencySymbol}{calculateTax()}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Service Charge (10%)</span>
+                                            <span>{BD_CONTEXT.currencySymbol}{calculateServiceCharge()}</span>
+                                        </div>
+                                        {orderType === 'delivery' && (
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Delivery Fee</span>
+                                                <span>{BD_CONTEXT.currencySymbol}{calculateDeliveryFee()}</span>
+                                            </div>
+                                        )}
+                                        {promoApplied && (
+                                            <div className="flex justify-between text-green-600">
+                                                <span>Discount</span>
+                                                <span>-{BD_CONTEXT.currencySymbol}{calculateDiscount()}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                                            <span>Total</span>
+                                            <span className="text-orange-500">{BD_CONTEXT.currencySymbol}{calculateTotal()}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {items.length > 0 && (
+                        <div className="sticky bottom-0 bg-white border-t p-4">
+                            <button 
+                                onClick={handleCheckout}
+                                className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors"
+                            >
+                                Proceed to Checkout
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+        
+        // Checkout Component
+        const Checkout = ({ orderData, onBack, onPlaceOrder }) => {
+            const [paymentMethod, setPaymentMethod] = React.useState('cod');
+            const [userProfile, setUserProfile] = React.useState({
+                name: '',
+                phone: '',
+                email: ''
+            });
+            const [saveProfile, setSaveProfile] = React.useState(false);
+            const [placingOrder, setPlacingOrder] = React.useState(false);
+            
+            React.useEffect(() => {
+                // Load existing user profile if available
+                const existingProfile = storage.get('userProfile');
+                if (existingProfile) {
+                    setUserProfile(existingProfile);
+                    setSaveProfile(true);
+                }
+            }, []);
+            
+            const handlePlaceOrder = () => {
+                if (!userProfile.name || !userProfile.phone) {
+                    alert('Please provide your name and phone number');
+                    return;
+                }
+                
+                setPlacingOrder(true);
+                
+                // Simulate order processing
+                setTimeout(() => {
+                    const orderId = 'ORD' + Date.now();
+                    const order = {
+                        id: orderId,
+                        ...orderData,
+                        customer: userProfile,
+                        paymentMethod,
+                        status: 'received',
+                        timestamp: new Date().toISOString(),
+                        branchId: storage.get('selectedBranchId')
+                    };
+                    
+                    // Save order to localStorage
+                    const orders = storage.get('orders', []);
+                    orders.push(order);
+                    storage.set('orders', orders);
+                    
+                    // Save user profile if requested
+                    if (saveProfile) {
+                        storage.set('userProfile', userProfile);
+                    }
+                    
+                    // Clear cart
+                    storage.set('cart', []);
+                    
+                    setPlacingOrder(false);
+                    onPlaceOrder(order);
+                }, 2000);
+            };
+            
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <Header title="Checkout" showBack onBackClick={onBack} />
+                    
+                    <div className="p-4">
+                        <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                            <h3 className="font-semibold text-gray-800 mb-3">Order Summary</h3>
+                            <div className="space-y-2">
+                                {orderData.items.map((item, index) => (
+                                    <div key={index} className="flex justify-between text-sm">
+                                        <span>{item.name} x {item.quantity}</span>
+                                        <span>{BD_CONTEXT.currencySymbol}{item.totalPrice}</span>
+                                    </div>
+                                ))}
+                                <div className="flex justify-between font-bold pt-2 border-t">
+                                    <span>Total</span>
+                                    <span className="text-orange-500">{BD_CONTEXT.currencySymbol}{orderData.total}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                            <h3 className="font-semibold text-gray-800 mb-3">Customer Information</h3>
+                            <div className="space-y-3">
+                                <input 
+                                    type="text" 
+                                    placeholder="Your Name"
+                                    value={userProfile.name}
+                                    onChange={(e) => setUserProfile({...userProfile, name: e.target.value})}
+                                    className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                                <input 
+                                    type="tel" 
+                                    placeholder="Phone Number"
+                                    value={userProfile.phone}
+                                    onChange={(e) => setUserProfile({...userProfile, phone: e.target.value})}
+                                    className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                                <input 
+                                    type="email" 
+                                    placeholder="Email (Optional)"
+                                    value={userProfile.email}
+                                    onChange={(e) => setUserProfile({...userProfile, email: e.target.value})}
+                                    className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                                <label className="flex items-center">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={saveProfile}
+                                        onChange={(e) => setSaveProfile(e.target.checked)}
+                                        className="mr-2"
+                                    />
+                                    <span className="text-sm">Save my information for next time</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                            <h3 className="font-semibold text-gray-800 mb-3">Payment Method</h3>
+                            <div className="space-y-2">
+                                <label className="flex items-center p-3 border rounded-lg cursor-pointer">
+                                    <input 
+                                        type="radio" 
+                                        name="paymentMethod" 
+                                        value="cod"
+                                        checked={paymentMethod === 'cod'}
+                                        onChange={() => setPaymentMethod('cod')}
+                                        className="mr-3"
+                                    />
+                                    <Icon name="moneyBillWave" className="mr-2 text-orange-500" />
+                                    <div className="flex-1">
+                                        <span className="font-medium">Cash on Delivery</span>
+                                        <p className="text-sm text-gray-600">Pay when you receive your order</p>
+                                    </div>
+                                </label>
+                                <label className="flex items-center p-3 border rounded-lg cursor-pointer">
+                                    <input 
+                                        type="radio" 
+                                        name="paymentMethod" 
+                                        value="card"
+                                        checked={paymentMethod === 'card'}
+                                        onChange={() => setPaymentMethod('card')}
+                                        className="mr-3"
+                                    />
+                                    <Icon name="creditCard" className="mr-2 text-orange-500" />
+                                    <div className="flex-1">
+                                        <span className="font-medium">Card Payment</span>
+                                        <p className="text-sm text-gray-600">Pay with credit/debit card (Demo)</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <button 
+                            onClick={handlePlaceOrder}
+                            disabled={placingOrder}
+                            className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors flex items-center justify-center"
+                        >
+                            {placingOrder ? (
+                                <>
+                                    <div className="spinner mr-2"></div>
+                                    Processing...
+                                </>
+                            ) : (
+                                'Place Order'
+                            )}
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Order Tracking Component
+        const OrderTracking = ({ order, onBack }) => {
+            const [currentStatus, setCurrentStatus] = React.useState(order.status);
+            const [estimatedTime, setEstimatedTime] = React.useState('25-30 min');
+            
+            // Simulate status updates
+            React.useEffect(() => {
+                const statusFlow = {
+                    'received': 'preparing',
+                    'preparing': 'ready',
+                    'ready': order.orderType === 'delivery' ? 'on-the-way' : 'completed',
+                    'on-the-way': 'delivered',
+                    'delivered': 'completed',
+                    'completed': 'completed'
+                };
+                
+                const timer = setTimeout(() => {
+                    if (currentStatus !== 'completed') {
+                        setCurrentStatus(statusFlow[currentStatus]);
+                        
+                        // Update estimated time based on status
+                        if (currentStatus === 'preparing') {
+                            setEstimatedTime('15-20 min');
+                        } else if (currentStatus === 'ready') {
+                            setEstimatedTime('5-10 min');
+                        } else if (currentStatus === 'on-the-way') {
+                            setEstimatedTime('5-10 min');
+                        } else if (currentStatus === 'delivered') {
+                            setEstimatedTime('Delivered');
+                        }
+                    }
+                }, 5000); // Update status every 5 seconds for demo
+                
+                return () => clearTimeout(timer);
+            }, [currentStatus, order.orderType]);
+            
+            const getStatusLabel = (status) => {
+                const labels = {
+                    'received': 'Order Received',
+                    'preparing': 'Preparing',
+                    'ready': 'Ready',
+                    'on-the-way': 'On the way',
+                    'delivered': 'Delivered',
+                    'completed': 'Completed'
+                };
+                return labels[status] || status;
+            };
+            
+            const getStatusIcon = (status) => {
+                const icons = {
+                    'received': 'receipt',
+                    'preparing': 'utensils',
+                    'ready': 'check',
+                    'on-the-way': 'motorcycle',
+                    'delivered': 'check',
+                    'completed': 'check'
+                };
+                return icons[status] || 'clock';
+            };
+            
+            const getStatusSteps = () => {
+                if (order.orderType === 'dine-in') {
+                    return ['received', 'preparing', 'ready', 'completed'];
+                } else if (order.orderType === 'takeaway') {
+                    return ['received', 'preparing', 'ready', 'completed'];
+                } else {
+                    return ['received', 'preparing', 'ready', 'on-the-way', 'delivered', 'completed'];
+                }
+            };
+            
+            const statusSteps = getStatusSteps();
+            const currentStepIndex = statusSteps.indexOf(currentStatus);
+            
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <Header title="Order Tracking" showBack onBackClick={onBack} />
+                    
+                    <div className="p-4">
+                        <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-semibold text-gray-800">Order #{order.id}</h3>
+                                <span className="text-sm text-gray-500">
+                                    {new Date(order.timestamp).toLocaleString()}
+                                </span>
+                            </div>
+                            
+                            <div className="flex items-center justify-center mb-4">
+                                <div className="text-center">
+                                    <div className="text-3xl font-bold text-orange-500 mb-1">
+                                        {estimatedTime}
+                                    </div>
+                                    <div className="text-sm text-gray-600">Estimated Time</div>
+                                </div>
+                            </div>
+                            
+                            <div className="relative">
+                                {statusSteps.map((step, index) => (
+                                    <div key={step} className="flex items-center mb-4">
+                                        <div className="relative flex items-center justify-center w-10 h-10 mr-3">
+                                            <div className={`timeline-dot ${index <= currentStepIndex ? 'active' : ''}`}></div>
+                                            {index < statusSteps.length - 1 && (
+                                                <div className={`timeline-line ${index < currentStepIndex ? 'active' : ''}`}></div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className={`font-medium ${index <= currentStepIndex ? 'text-gray-800' : 'text-gray-400'}`}>
+                                                {getStatusLabel(step)}
+                                            </div>
+                                            {index === currentStepIndex && (
+                                                <div className="text-sm text-orange-500">In progress</div>
+                                            )}
+                                        </div>
+                                        <Icon name={getStatusIcon(step)} className={`text-lg ${index <= currentStepIndex ? 'text-orange-500' : 'text-gray-400'}`} />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                            <h3 className="font-semibold text-gray-800 mb-3">Order Details</h3>
+                            <div className="space-y-2">
+                                {order.items.map((item, index) => (
+                                    <div key={index} className="flex justify-between text-sm">
+                                        <span>{item.name} x {item.quantity}</span>
+                                        <span>{BD_CONTEXT.currencySymbol}{item.totalPrice}</span>
+                                    </div>
+                                ))}
+                                <div className="flex justify-between font-bold pt-2 border-t">
+                                    <span>Total</span>
+                                    <span className="text-orange-500">{BD_CONTEXT.currencySymbol}{order.total}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg shadow-sm p-4">
+                            <h3 className="font-semibold text-gray-800 mb-3">Delivery Information</h3>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex">
+                                    <span className="text-gray-600 w-24">Name:</span>
+                                    <span>{order.customer.name}</span>
+                                </div>
+                                <div className="flex">
+                                    <span className="text-gray-600 w-24">Phone:</span>
+                                    <span>{order.customer.phone}</span>
+                                </div>
+                                {order.orderType === 'dine-in' && (
+                                    <div className="flex">
+                                        <span className="text-gray-600 w-24">Table:</span>
+                                        <span>{order.tableNumber}</span>
+                                    </div>
+                                )}
+                                {order.orderType === 'delivery' && (
+                                    <div className="flex">
+                                        <span className="text-gray-600 w-24">Address:</span>
+                                        <span>{order.deliveryAddress}</span>
+                                    </div>
+                                )}
+                                <div className="flex">
+                                    <span className="text-gray-600 w-24">Payment:</span>
+                                    <span>{order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Card Payment'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Profile Component
+        const Profile = ({ onBack, onLogout }) => {
+            const [userProfile, setUserProfile] = React.useState(null);
+            const [orders, setOrders] = React.useState([]);
+            const [activeTab, setActiveTab] = React.useState('profile');
+            const [editingProfile, setEditingProfile] = React.useState(false);
+            
+            React.useEffect(() => {
+                // Load user profile and orders from localStorage
+                const profile = storage.get('userProfile');
+                const userOrders = storage.get('orders', []);
+                
+                setUserProfile(profile);
+                setOrders(userOrders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
+            }, []);
+            
+            const handleSaveProfile = () => {
+                storage.set('userProfile', userProfile);
+                setEditingProfile(false);
+            };
+            
+            const handleReorder = (order) => {
+                // Add items from the order to cart
+                const cart = storage.get('cart', []);
+                cart.push(...order.items);
+                storage.set('cart', cart);
+                
+                // Navigate to menu
+                window.location.hash = '#menu';
+            };
+            
+            if (!userProfile) {
+                return (
+                    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                        <div className="text-center">
+                            <Icon name="user" className="text-6xl text-gray-300 mb-4" />
+                            <h2 className="text-xl font-semibold text-gray-700 mb-2">No Profile Found</h2>
+                            <p className="text-gray-500 mb-4">You haven't placed any orders yet</p>
+                            <button 
+                                onClick={onBack}
+                                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
+                            >
+                                Go Back
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+            
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <Header title="My Profile" showBack onBackClick={onBack} />
+                    
+                    <div className="p-4">
+                        <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-semibold text-gray-800">Profile Information</h3>
+                                <button 
+                                    onClick={() => setEditingProfile(!editingProfile)}
+                                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                                    aria-label="Edit profile"
+                                >
+                                    <Icon name="edit" className="text-gray-700" />
+                                </button>
+                            </div>
+                            
+                            {editingProfile ? (
+                                <div className="space-y-3">
+                                    <input 
+                                        type="text" 
+                                        value={userProfile.name}
+                                        onChange={(e) => setUserProfile({...userProfile, name: e.target.value})}
+                                        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
+                                    <input 
+                                        type="tel" 
+                                        value={userProfile.phone}
+                                        onChange={(e) => setUserProfile({...userProfile, phone: e.target.value})}
+                                        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
+                                    <input 
+                                        type="email" 
+                                        value={userProfile.email || ''}
+                                        onChange={(e) => setUserProfile({...userProfile, email: e.target.value})}
+                                        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
+                                    <button 
+                                        onClick={handleSaveProfile}
+                                        className="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors"
+                                    >
+                                        Save Changes
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <div className="flex">
+                                        <span className="text-gray-600 w-24">Name:</span>
+                                        <span>{userProfile.name}</span>
+                                    </div>
+                                    <div className="flex">
+                                        <span className="text-gray-600 w-24">Phone:</span>
+                                        <span>{userProfile.phone}</span>
+                                    </div>
+                                    {userProfile.email && (
+                                        <div className="flex">
+                                            <span className="text-gray-600 w-24">Email:</span>
+                                            <span>{userProfile.email}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div className="bg-white rounded-lg shadow-sm p-4">
+                            <h3 className="font-semibold text-gray-800 mb-3">Order History</h3>
+                            {orders.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                    <Icon name="history" className="text-4xl mb-2" />
+                                    <p>No orders yet</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {orders.map(order => (
+                                        <div key={order.id} className="border rounded-lg p-3">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <div className="font-medium">Order #{order.id}</div>
+                                                    <div className="text-sm text-gray-500">
+                                                        {new Date(order.timestamp).toLocaleDateString()}
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="font-medium text-orange-500">
+                                                        {BD_CONTEXT.currencySymbol}{order.total}
+                                                    </div>
+                                                    <div className="text-sm text-gray-500 capitalize">
+                                                        {order.status.replace('-', ' ')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <div className="text-sm text-gray-600">
+                                                    {order.items.length} items • {order.orderType}
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleReorder(order)}
+                                                    className="text-sm text-orange-500 hover:text-orange-600 font-medium"
+                                                >
+                                                    Reorder
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        
+                        <button 
+                            onClick={onLogout}
+                            className="w-full mt-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors flex items-center justify-center"
+                        >
+                            <Icon name="signOutAlt" className="mr-2" />
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Admin Panel Component
+        const AdminPanel = ({ onBack }) => {
+            const [activeTab, setActiveTab] = React.useState('orders');
+            const [orders, setOrders] = React.useState([]);
+            const [selectedOrder, setSelectedOrder] = React.useState(null);
+            const [localStorageData, setLocalStorageData] = React.useState({});
+            
+            React.useEffect(() => {
+                // Load data from localStorage
+                setOrders(storage.get('orders', []));
+                
+                // Get all localStorage keys
+                const keys = Object.keys(localStorage);
+                const data = {};
+                keys.forEach(key => {
+                    try {
+                        data[key] = JSON.parse(localStorage.getItem(key));
+                    } catch (e) {
+                        data[key] = localStorage.getItem(key);
+                    }
+                });
+                setLocalStorageData(data);
+            }, []);
+            
+            const updateOrderStatus = (orderId, newStatus) => {
+                const updatedOrders = orders.map(order => 
+                    order.id === orderId ? { ...order, status: newStatus } : order
+                );
+                setOrders(updatedOrders);
+                storage.set('orders', updatedOrders);
+            };
+            
+            const clearAllData = () => {
+                if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
+                    storage.clear();
+                    alert('All data cleared successfully');
+                    window.location.reload();
+                }
+            };
+            
+            const exportData = () => {
+                const dataStr = JSON.stringify(localStorageData, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                
+                const exportFileDefaultName = 'restaurant-data.json';
+                
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+            };
+            
+            const importData = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        Object.keys(data).forEach(key => {
+                            localStorage.setItem(key, JSON.stringify(data[key]));
+                        });
+                        alert('Data imported successfully');
+                        window.location.reload();
+                    } catch (error) {
+                        alert('Invalid data file');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <Header title="Admin Panel" showBack onBackClick={onBack} />
+                    
+                    <div className="p-4">
+                        <div className="bg-white rounded-lg shadow-sm mb-4">
+                            <div className="flex border-b">
+                                <button 
+                                    onClick={() => setActiveTab('orders')}
+                                    className={`flex-1 py-3 font-medium ${activeTab === 'orders' ? 'text-orange-500 border-b-2 border-orange-500' : 'text-gray-600'}`}
+                                >
+                                    Orders
+                                </button>
+                                <button 
+                                    onClick={() => setActiveTab('data')}
+                                    className={`flex-1 py-3 font-medium ${activeTab === 'data' ? 'text-orange-500 border-b-2 border-orange-500' : 'text-gray-600'}`}
+                                >
+                                    Data
+                                </button>
+                            </div>
+                            
+                            {activeTab === 'orders' && (
+                                <div className="p-4">
+                                    <h3 className="font-semibold text-gray-800 mb-3">Order Management</h3>
+                                    {orders.length === 0 ? (
+                                        <div className="text-center py-8 text-gray-500">
+                                            <Icon name="receipt" className="text-4xl mb-2" />
+                                            <p>No orders found</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {orders.map(order => (
+                                                <div key={order.id} className="border rounded-lg p-3">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div>
+                                                            <div className="font-medium">Order #{order.id}</div>
+                                                            <div className="text-sm text-gray-500">
+                                                                {new Date(order.timestamp).toLocaleString()}
+                                                            </div>
+                                                            <div className="text-sm text-gray-600">
+                                                                {order.customer.name} • {order.customer.phone}
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="font-medium text-orange-500">
+                                                                {BD_CONTEXT.currencySymbol}{order.total}
+                                                            </div>
+                                                            <div className="text-sm text-gray-500 capitalize">
+                                                                {order.orderType}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <select 
+                                                            value={order.status}
+                                                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                                                            className="px-3 py-1 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                                        >
+                                                            <option value="received">Received</option>
+                                                            <option value="preparing">Preparing</option>
+                                                            <option value="ready">Ready</option>
+                                                            <option value="on-the-way">On the way</option>
+                                                            <option value="delivered">Delivered</option>
+                                                            <option value="completed">Completed</option>
+                                                        </select>
+                                                        <button 
+                                                            onClick={() => setSelectedOrder(order)}
+                                                            className="text-sm text-orange-500 hover:text-orange-600 font-medium"
+                                                        >
+                                                            View Details
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            
+                            {activeTab === 'data' && (
+                                <div className="p-4">
+                                    <h3 className="font-semibold text-gray-800 mb-3">Data Management</h3>
+                                    <div className="space-y-3">
+                                        <button 
+                                            onClick={exportData}
+                                            className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors flex items-center justify-center"
+                                        >
+                                            <Icon name="download" className="mr-2" />
+                                            Export Data
+                                        </button>
+                                        <label className="w-full py-2 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg transition-colors flex items-center justify-center cursor-pointer">
+                                            <Icon name="upload" className="mr-2" />
+                                            Import Data
+                                            <input 
+                                                type="file" 
+                                                accept=".json"
+                                                onChange={importData}
+                                                className="hidden"
+                                            />
+                                        </label>
+                                        <button 
+                                            onClick={clearAllData}
+                                            className="w-full py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors flex items-center justify-center"
+                                        >
+                                            <Icon name="trash" className="mr-2" />
+                                            Clear All Data
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="mt-4">
+                                        <h4 className="font-medium text-gray-800 mb-2">LocalStorage Keys</h4>
+                                        <div className="bg-gray-100 rounded-lg p-3 max-h-64 overflow-y-auto">
+                                            {Object.keys(localStorageData).map(key => (
+                                                <div key={key} className="mb-2">
+                                                    <div className="font-medium text-sm">{key}</div>
+                                                    <div className="text-xs text-gray-600 truncate">
+                                                        {typeof localStorageData[key] === 'object' 
+                                                            ? `Object (${Object.keys(localStorageData[key]).length} items)` 
+                                                            : String(localStorageData[key]).substring(0, 50) + '...'}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        
+                        {selectedOrder && (
+                            <div className="fixed inset-0 z-50 flex flex-col bg-white">
+                                <div className="sticky top-0 z-10 bg-white shadow-sm">
+                                    <div className="flex items-center justify-between p-4">
+                                        <button 
+                                            onClick={() => setSelectedOrder(null)}
+                                            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                                            aria-label="Close"
+                                        >
+                                            <Icon name="times" className="text-gray-700" />
+                                        </button>
+                                        <h2 className="text-lg font-semibold">Order Details</h2>
+                                        <div className="w-10"></div>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex-1 overflow-y-auto p-4">
+                                    <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                                        <h3 className="font-semibold text-gray-800 mb-3">Order #{selectedOrder.id}</h3>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex">
+                                                <span className="text-gray-600 w-24">Date:</span>
+                                                <span>{new Date(selectedOrder.timestamp).toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex">
+                                                <span className="text-gray-600 w-24">Status:</span>
+                                                <span className="capitalize">{selectedOrder.status.replace('-', ' ')}</span>
+                                            </div>
+                                            <div className="flex">
+                                                <span className="text-gray-600 w-24">Type:</span>
+                                                <span className="capitalize">{selectedOrder.orderType}</span>
+                                            </div>
+                                            <div className="flex">
+                                                <span className="text-gray-600 w-24">Payment:</span>
+                                                <span>{selectedOrder.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Card Payment'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                                        <h3 className="font-semibold text-gray-800 mb-3">Customer Information</h3>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex">
+                                                <span className="text-gray-600 w-24">Name:</span>
+                                                <span>{selectedOrder.customer.name}</span>
+                                            </div>
+                                            <div className="flex">
+                                                <span className="text-gray-600 w-24">Phone:</span>
+                                                <span>{selectedOrder.customer.phone}</span>
+                                            </div>
+                                            {selectedOrder.customer.email && (
+                                                <div className="flex">
+                                                    <span className="text-gray-600 w-24">Email:</span>
+                                                    <span>{selectedOrder.customer.email}</span>
+                                                </div>
+                                            )}
+                                            {selectedOrder.orderType === 'dine-in' && (
+                                                <div className="flex">
+                                                    <span className="text-gray-600 w-24">Table:</span>
+                                                    <span>{selectedOrder.tableNumber}</span>
+                                                </div>
+                                            )}
+                                            {selectedOrder.orderType === 'delivery' && (
+                                                <>
+                                                    <div className="flex">
+                                                        <span className="text-gray-600 w-24">Address:</span>
+                                                        <span>{selectedOrder.deliveryAddress}</span>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-white rounded-lg shadow-sm p-4">
+                                        <h3 className="font-semibold text-gray-800 mb-3">Order Items</h3>
+                                        <div className="space-y-2">
+                                            {selectedOrder.items.map((item, index) => (
+                                                <div key={index} className="flex justify-between text-sm">
+                                                    <div>
+                                                        <span>{item.name} x {item.quantity}</span>
+                                                        {item.variant && (
+                                                            <span className="text-gray-600 ml-1">({item.variant.name})</span>
+                                                        )}
+                                                    </div>
+                                                    <span>{BD_CONTEXT.currencySymbol}{item.totalPrice}</span>
+                                                </div>
+                                            ))}
+                                            <div className="flex justify-between font-bold pt-2 border-t">
+                                                <span>Total</span>
+                                                <span className="text-orange-500">{BD_CONTEXT.currencySymbol}{selectedOrder.total}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+        
+        // Menu Component
+        const Menu = ({ branchId, onBack, onAddToCart, onViewDetails, cartItemsCount, onOpenCart }) => {
+            const [branch, setBranch] = React.useState(null);
+            const [menuItems, setMenuItems] = React.useState([]);
+            const [categories, setCategories] = React.useState([]);
+            const [selectedCategory, setSelectedCategory] = React.useState('All');
+            const [searchTerm, setSearchTerm] = React.useState('');
+            const [sortBy, setSortBy] = React.useState('popularity');
+            const [filters, setFilters] = React.useState({
+                vegetarian: false,
+                spicy: false,
+                containsNuts: false
+            });
+            const [showFilters, setShowFilters] = React.useState(false);
+            const [loading, setLoading] = React.useState(true);
+            
+            React.useEffect(() => {
+                // Load branch and menu data
+                const branches = storage.get('branches', []);
+                const selectedBranch = branches.find(b => b.id === branchId);
+                const menu = storage.get('menu', {});
+                
+                setBranch(selectedBranch);
+                setMenuItems(menu[branchId] || []);
+                
+                // Extract categories
+                const allCategories = ['All', ...new Set(menu[branchId]?.map(item => item.category) || [])];
+                setCategories(allCategories);
+                
+                setLoading(false);
+            }, [branchId]);
+            
+            const getFilteredAndSortedItems = () => {
+                let filtered = menuItems;
+                
+                // Filter by category
+                if (selectedCategory !== 'All') {
+                    filtered = filtered.filter(item => item.category === selectedCategory);
+                }
+                
+                // Filter by search term
+                if (searchTerm) {
+                    filtered = filtered.filter(item => 
+                        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        item.description.toLowerCase().includes(searchTerm.toLowerCase())
+                    );
+                }
+                
+                // Apply filters
+                if (filters.vegetarian) {
+                    filtered = filtered.filter(item => item.isVegetarian);
+                }
+                if (filters.spicy) {
+                    filtered = filtered.filter(item => item.badges.includes('spicy'));
+                }
+                if (filters.containsNuts) {
+                    filtered = filtered.filter(item => item.containsNuts);
+                }
+                
+                // Sort items
+                if (sortBy === 'popularity') {
+                    filtered.sort((a, b) => b.reviewCount - a.reviewCount);
+                } else if (sortBy === 'price-low-high') {
+                    filtered.sort((a, b) => a.price - b.price);
+                } else if (sortBy === 'price-high-low') {
+                    filtered.sort((a, b) => b.price - a.price);
+                } else if (sortBy === 'new') {
+                    filtered.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
+                }
+                
+                return filtered;
+            };
+            
+            const filteredItems = getFilteredAndSortedItems();
+            
+            if (loading) {
+                return <Loading />;
+            }
+            
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <Header title={branch ? branch.name : 'Menu'} showBack onBackClick={onBack} />
+                    
+                    {branch && (
+                        <div className="relative h-48">
+                            <img src={branch.coverImage} alt={branch.name} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                                <div className="text-center text-white">
+                                    <img src={branch.logo} alt={branch.name} className="w-20 h-20 rounded-full mx-auto mb-2 border-4 border-white" />
+                                    <h2 className="text-2xl font-bold">{branch.name}</h2>
+                                    <p className="text-sm">{branch.address}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <div className="sticky top-16 z-30 bg-white shadow-sm">
+                        {/* Search Bar */}
+                        <div className="p-4">
+                            <div className="relative">
+                                <input 
+                                    type="text" 
+                                    placeholder="Search for dishes..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                                <Icon name="search" className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                            </div>
+                        </div>
+                        
+                        {/* Category Tabs */}
+                        <div className="px-4 pb-2">
+                            <div className="flex space-x-2 overflow-x-auto scrollbar-hide">
+                                {categories.map(category => (
+                                    <button 
+                                        key={category}
+                                        onClick={() => setSelectedCategory(category)}
+                                        className={`px-4 py-2 rounded-full whitespace-nowrap ${selectedCategory === category ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                    >
+                                        {category}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        {/* Sort and Filter */}
+                        <div className="flex items-center justify-between px-4 pb-3">
+                            <select 
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                className="px-3 py-1 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            >
+                                <option value="popularity">Popularity</option>
+                                <option value="price-low-high">Price: Low to High</option>
+                                <option value="price-high-low">Price: High to Low</option>
+                                <option value="new">Newest First</option>
+                            </select>
+                            
+                            <button 
+                                onClick={() => setShowFilters(!showFilters)}
+                                className="flex items-center px-3 py-1 border rounded-lg text-sm"
+                            >
+                                <Icon name="filter" className="mr-1" />
+                                Filters
+                            </button>
+                        </div>
+                        
+                        {/* Filter Options */}
+                        {showFilters && (
+                            <div className="px-4 pb-3 border-t">
+                                <div className="flex space-x-4 mt-3">
+                                    <label className="flex items-center">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={filters.vegetarian}
+                                            onChange={(e) => setFilters({...filters, vegetarian: e.target.checked})}
+                                            className="custom-checkbox mr-2"
+                                        />
+                                        <span className="text-sm">Vegetarian</span>
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={filters.spicy}
+                                            onChange={(e) => setFilters({...filters, spicy: e.target.checked})}
+                                            className="custom-checkbox mr-2"
+                                        />
+                                        <span className="text-sm">Spicy</span>
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={filters.containsNuts}
+                                            onChange={(e) => setFilters({...filters, containsNuts: e.target.checked})}
+                                            className="custom-checkbox mr-2"
+                                        />
+                                        <span className="text-sm">Contains Nuts</span>
+                                    </label>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Menu Items */}
+                    <div className="p-4">
+                        {filteredItems.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                                <Icon name="utensils" className="text-4xl mb-2" />
+                                <p>No items found</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {filteredItems.map(item => (
+                                    <MenuItem 
+                                        key={item.id} 
+                                        item={item} 
+                                        onAddToCart={onAddToCart}
+                                        onViewDetails={onViewDetails}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Floating Cart Button */}
+                    <button 
+                        onClick={onOpenCart}
+                        className="fixed bottom-4 right-4 z-20 bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-full shadow-lg transition-colors flex items-center justify-center"
+                        aria-label="Open cart"
+                    >
+                        <Icon name="shoppingCart" />
+                        {cartItemsCount > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center">
+                                {cartItemsCount}
+                            </span>
+                        )}
+                    </button>
+                </div>
+            );
+        };
+        
+        // Main App Component
+        const App = () => {
+            const [currentView, setCurrentView] = React.useState('home');
+            const [selectedBranchId, setSelectedBranchId] = React.useState(null);
+            const [cart, setCart] = React.useState([]);
+            const [showCart, setShowCart] = React.useState(false);
+            const [showItemDetail, setShowItemDetail] = React.useState(false);
+            const [selectedItem, setSelectedItem] = React.useState(null);
+            const [orderData, setOrderData] = React.useState(null);
+            const [placedOrder, setPlacedOrder] = React.useState(null);
+            const [showToast, setShowToast] = React.useState(false);
+            const [toastMessage, setToastMessage] = React.useState('');
+            const [toastType, setToastType] = React.useState('success');
+            
+            // Load cart from localStorage on mount
+            React.useEffect(() => {
+                const savedCart = storage.get('cart', []);
+                setCart(savedCart);
+            }, []);
+            
+            // Save cart to localStorage whenever it changes
+            React.useEffect(() => {
+                storage.set('cart', cart);
+            }, [cart]);
+            
+            // Handle branch selection
+            const handleBranchSelect = (branch) => {
+                setSelectedBranchId(branch.id);
+                storage.set('selectedBranchId', branch.id);
+                setCurrentView('menu');
+            };
+            
+            // Handle adding item to cart
+            const handleAddToCart = (item) => {
+                // Check if item already exists in cart
+                const existingItemIndex = cart.findIndex(
+                    cartItem => 
+                        cartItem.id === item.id && 
+                        JSON.stringify(cartItem.variant) === JSON.stringify(item.variant) &&
+                        JSON.stringify(cartItem.addons.sort((a, b) => a.name.localeCompare(b.name))) === 
+                        JSON.stringify(item.addons.sort((a, b) => a.name.localeCompare(b.name)))
+                );
+                
+                if (existingItemIndex !== -1) {
+                    // Update quantity of existing item
+                    const updatedCart = [...cart];
+                    updatedCart[existingItemIndex].quantity += item.quantity;
+                    updatedCart[existingItemIndex].totalPrice += item.totalPrice;
+                    setCart(updatedCart);
+                } else {
+                    // Add new item to cart
+                    setCart([...cart, item]);
+                }
+                
+                // Show toast notification
+                setToastMessage('Item added to cart');
+                setToastType('success');
+                setShowToast(true);
+            };
+            
+            // Handle viewing item details
+            const handleViewItemDetails = (item) => {
+                setSelectedItem(item);
+                setShowItemDetail(true);
+            };
+            
+            // Handle updating cart item quantity
+            const handleUpdateCartItemQuantity = (index, newQuantity) => {
+                if (newQuantity <= 0) {
+                    handleRemoveCartItem(index);
+                    return;
+                }
+                
+                const updatedCart = [...cart];
+                const item = updatedCart[index];
+                const unitPrice = item.totalPrice / item.quantity;
+                item.quantity = newQuantity;
+                item.totalPrice = unitPrice * newQuantity;
+                setCart(updatedCart);
+            };
+            
+            // Handle removing cart item
+            const handleRemoveCartItem = (index) => {
+                const updatedCart = [...cart];
+                updatedCart.splice(index, 1);
+                setCart(updatedCart);
+            };
+            
+            // Handle checkout
+            const handleCheckout = (data) => {
+                setOrderData(data);
+                setCurrentView('checkout');
+                setShowCart(false);
+            };
+            
+            // Handle placing order
+            const handlePlaceOrder = (order) => {
+                setPlacedOrder(order);
+                setCurrentView('order-tracking');
+            };
+            
+            // Handle back navigation
+            const handleBack = () => {
+                if (currentView === 'menu') {
+                    setCurrentView('home');
+                } else if (currentView === 'checkout') {
+                    setCurrentView('menu');
+                    setShowCart(true);
+                } else if (currentView === 'order-tracking') {
+                    setCurrentView('home');
+                } else if (currentView === 'profile') {
+                    setCurrentView('home');
+                } else if (currentView === 'admin') {
+                    setCurrentView('home');
+                }
+            };
+            
+            // Calculate cart items count
+            const cartItemsCount = cart.reduce((total, item) => total + item.quantity, 0);
+            
+            // Handle URL hash for navigation
+            React.useEffect(() => {
+                const handleHashChange = () => {
+                    const hash = window.location.hash.substring(1);
+                    if (hash && ['home', 'menu', 'profile', 'admin'].includes(hash)) {
+                        setCurrentView(hash);
+                    }
+                };
+                
+                window.addEventListener('hashchange', handleHashChange);
+                return () => window.removeEventListener('hashchange', handleHashChange);
+            }, []);
+            
+            // Admin panel access (hidden feature)
+            React.useEffect(() => {
+                const handleKeyPress = (e) => {
+                    // Ctrl+Shift+A to open admin panel
+                    if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+                        setCurrentView('admin');
+                    }
+                };
+                
+                window.addEventListener('keydown', handleKeyPress);
+                return () => window.removeEventListener('keydown', handleKeyPress);
+            }, []);
+            
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* Render current view */}
+                    {currentView === 'home' && (
+                        <Home onBranchSelect={handleBranchSelect} />
+                    )}
+                    
+                    {currentView === 'menu' && selectedBranchId && (
+                        <Menu 
+                            branchId={selectedBranchId}
+                            onBack={handleBack}
+                            onAddToCart={handleAddToCart}
+                            onViewDetails={handleViewItemDetails}
+                            cartItemsCount={cartItemsCount}
+                            onOpenCart={() => setShowCart(true)}
+                        />
+                    )}
+                    
+                    {currentView === 'checkout' && orderData && (
+                        <Checkout 
+                            orderData={orderData}
+                            onBack={handleBack}
+                            onPlaceOrder={handlePlaceOrder}
+                        />
+                    )}
+                    
+                    {currentView === 'order-tracking' && placedOrder && (
+                        <OrderTracking 
+                            order={placedOrder}
+                            onBack={handleBack}
+                        />
+                    )}
+                    
+                    {currentView === 'profile' && (
+                        <Profile 
+                            onBack={handleBack}
+                            onLogout={() => {
+                                storage.remove('userProfile');
+                                setCurrentView('home');
+                            }}
+                        />
+                    )}
+                    
+                    {currentView === 'admin' && (
+                        <AdminPanel 
+                            onBack={handleBack}
+                        />
+                    )}
+                    
+                    {/* Bottom Navigation */}
+                    {currentView === 'home' && (
+                        <div className="fixed bottom-0 left-0 right-0 bg-white border-t z-30">
+                            <div className="flex justify-around py-2">
+                                <button 
+                                    onClick={() => setCurrentView('home')}
+                                    className="flex flex-col items-center p-2 text-orange-500"
+                                >
+                                    <Icon name="home" className="text-xl mb-1" />
+                                    <span className="text-xs">Home</span>
+                                </button>
+                                <button 
+                                    onClick={() => setShowCart(true)}
+                                    className="flex flex-col items-center p-2 text-gray-600 relative"
+                                >
+                                    <Icon name="shoppingCart" className="text-xl mb-1" />
+                                    <span className="text-xs">Cart</span>
+                                    {cartItemsCount > 0 && (
+                                        <span className="absolute top-1 right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                                            {cartItemsCount}
+                                        </span>
+                                    )}
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentView('profile')}
+                                    className="flex flex-col items-center p-2 text-gray-600"
+                                >
+                                    <Icon name="user" className="text-xl mb-1" />
+                                    <span className="text-xs">Profile</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Cart Modal */}
+                    <Cart 
+                        isOpen={showCart}
+                        onClose={() => setShowCart(false)}
+                        items={cart}
+                        onUpdateQuantity={handleUpdateCartItemQuantity}
+                        onRemoveItem={handleRemoveCartItem}
+                        onCheckout={handleCheckout}
+                    />
+                    
+                    {/* Item Detail Modal */}
+                    <ItemDetailModal 
+                        item={selectedItem}
+                        isOpen={showItemDetail}
+                        onClose={() => setShowItemDetail(false)}
+                        onAddToCart={handleAddToCart}
+                    />
+                    
+                    {/* Toast Notification */}
+                    <Toast 
+                        message={toastMessage}
+                        type={toastType}
+                        isVisible={showToast}
+                        onClose={() => setShowToast(false)}
+                    />
+                </div>
+            );
+        };
+        
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
