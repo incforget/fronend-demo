@@ -596,7 +596,7 @@
         // Header Component
         const Header = ({ title, showBack, showLanguageToggle, onBackClick }) => {
             return (
-                <header className="sticky top-0 z-40 bg-white shadow-sm">
+                <header className={`sticky top-0 z-40 bg-white shadow-sm ${showBack || showLanguageToggle ? 'lg:hidden' : ''}`}>
                     <div className="flex items-center justify-between p-4">
                         {showBack && (
                             <button 
@@ -706,7 +706,7 @@
                 <div className="min-h-screen bg-gray-50">
                     <Header title="Smart QR Menu" showLanguageToggle />
                     
-                    <div className="p-4">
+                    <div className="max-w-6xl mx-auto p-4">
                         {/* Hero Section */}
                         <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-lg p-6 text-white mb-6">
                             <h2 className="text-2xl font-bold mb-2">Welcome to Our Restaurant</h2>
@@ -719,7 +719,7 @@
                         
                         {/* Branch Selection */}
                         <h3 className="text-lg font-semibold text-gray-800 mb-3">Select Branch</h3>
-                        <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {branches.map(branch => (
                                 <BranchCard 
                                     key={branch.id} 
@@ -734,7 +734,7 @@
         };
         
         // Menu Item Component
-        const MenuItem = ({ item, onAddToCart, onViewDetails }) => {
+        const MenuItem = ({ item, onAddToCart, onViewDetails, onToggleFavorite, isFavorite }) => {
             const { name, description, price, image, badges, rating, reviewCount, isNew } = item;
             
             return (
@@ -747,10 +747,17 @@
                             </div>
                         )}
                         {badges.includes('popular') && (
-                            <div className="absolute top-2 right-2 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                            <div className="absolute top-2 left-2 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-medium">
                                 Popular
                             </div>
                         )}
+                        <button 
+                            onClick={() => onToggleFavorite(item)}
+                            className="absolute top-2 right-2 p-2 rounded-full bg-transparent hover:bg-white/20 transition-colors"
+                            aria-label="Add to favorites"
+                        >
+                            <Icon name={isFavorite ? 'heart' : 'heart'} className={`text-lg ${isFavorite ? 'text-red-500 fill-current' : 'text-white stroke-current'}`} />
+                        </button>
                     </div>
                     <div className="p-4">
                         <h3 className="font-bold text-lg text-gray-800 mb-1">{name}</h3>
@@ -1348,7 +1355,7 @@
                 <div className="min-h-screen bg-gray-50">
                     <Header title="Checkout" showBack onBackClick={onBack} />
                     
-                    <div className="p-4">
+                    <div className="max-w-4xl mx-auto p-4">
                         <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
                             <h3 className="font-semibold text-gray-800 mb-3">Order Summary</h3>
                             <div className="space-y-2">
@@ -1533,7 +1540,7 @@
                 <div className="min-h-screen bg-gray-50">
                     <Header title="Order Tracking" showBack onBackClick={onBack} />
                     
-                    <div className="p-4">
+                    <div className="max-w-4xl mx-auto p-4">
                         <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="font-semibold text-gray-800">Order #{order.id}</h3>
@@ -1677,7 +1684,7 @@
                 <div className="min-h-screen bg-gray-50">
                     <Header title="My Profile" showBack onBackClick={onBack} />
                     
-                    <div className="p-4">
+                    <div className="max-w-4xl mx-auto p-4">
                         <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="font-semibold text-gray-800">Profile Information</h3>
@@ -1869,7 +1876,7 @@
                 <div className="min-h-screen bg-gray-50">
                     <Header title="Admin Panel" showBack onBackClick={onBack} />
                     
-                    <div className="p-4">
+                    <div className="max-w-6xl mx-auto p-4">
                         <div className="bg-white rounded-lg shadow-sm mb-4">
                             <div className="flex border-b">
                                 <button 
@@ -2109,6 +2116,7 @@
             });
             const [showFilters, setShowFilters] = React.useState(false);
             const [loading, setLoading] = React.useState(true);
+            const [favorites, setFavorites] = React.useState([]);
             
             React.useEffect(() => {
                 // Load branch and menu data
@@ -2119,12 +2127,47 @@
                 setBranch(selectedBranch);
                 setMenuItems(menu[branchId] || []);
                 
+                // Load favorites from localStorage
+                const savedFavorites = storage.get('favorites', []);
+                setFavorites(savedFavorites);
+                
                 // Extract categories
                 const allCategories = ['All', ...new Set(menu[branchId]?.map(item => item.category) || [])];
                 setCategories(allCategories);
                 
                 setLoading(false);
             }, [branchId]);
+            
+            // Save favorites to localStorage whenever they change
+            React.useEffect(() => {
+                storage.set('favorites', favorites);
+            }, [favorites]);
+            
+            const handleToggleFavorite = (item) => {
+                const isFavorite = favorites.some(fav => fav.id === item.id);
+                if (isFavorite) {
+                    // Remove from favorites
+                    setFavorites(favorites.filter(fav => fav.id !== item.id));
+                } else {
+                    // Add to favorites
+                    setFavorites([...favorites, {
+                        id: item.id,
+                        name: item.name,
+                        price: item.price,
+                        image: item.image,
+                        category: item.category,
+                        rating: item.rating,
+                        reviewCount: item.reviewCount,
+                        branchId: branchId,
+                        branchName: branch?.name,
+                        addedAt: new Date().toISOString()
+                    }]);
+                }
+            };
+            
+            const isItemFavorite = (item) => {
+                return favorites.some(fav => fav.id === item.id);
+            };
             
             const getFilteredAndSortedItems = () => {
                 let filtered = menuItems;
@@ -2178,22 +2221,24 @@
                     <Header title={branch ? branch.name : 'Menu'} showBack onBackClick={onBack} />
                     
                     {branch && (
-                        <div className="relative h-48">
-                            <img src={branch.coverImage} alt={branch.name} className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                                <div className="text-center text-white">
-                                    <img src={branch.logo} alt={branch.name} className="w-20 h-20 rounded-full mx-auto mb-2 border-4 border-white" />
-                                    <h2 className="text-2xl font-bold">{branch.name}</h2>
-                                    <p className="text-sm">{branch.address}</p>
+                        <div className="max-w-6xl mx-auto">
+                            <div className="relative h-48">
+                                <img src={branch.coverImage} alt={branch.name} className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                                    <div className="text-center text-white">
+                                        <img src={branch.logo} alt={branch.name} className="w-20 h-20 rounded-full mx-auto mb-2 border-4 border-white" />
+                                        <h2 className="text-2xl font-bold">{branch.name}</h2>
+                                        <p className="text-sm">{branch.address}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     )}
                     
-                    <div className="sticky top-16 z-30 bg-white shadow-sm">
+                    <div className="sticky top-16 lg:top-0 z-30 bg-white shadow-sm">
                         {/* Search Bar */}
-                        <div className="p-4">
-                            <div className="relative">
+                        <div className="max-w-6xl mx-auto p-4">
+                            <div className="relative max-w-md mx-auto">
                                 <input 
                                     type="text" 
                                     placeholder="Search for dishes..."
@@ -2206,7 +2251,7 @@
                         </div>
                         
                         {/* Category Tabs */}
-                        <div className="px-4 pb-2">
+                        <div className="max-w-6xl mx-auto px-4 pb-2">
                             <div className="flex space-x-2 overflow-x-auto scrollbar-hide">
                                 {categories.map(category => (
                                     <button 
@@ -2221,7 +2266,7 @@
                         </div>
                         
                         {/* Sort and Filter */}
-                        <div className="flex items-center justify-between px-4 pb-3">
+                        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 pb-3">
                             <select 
                                 value={sortBy}
                                 onChange={(e) => setSortBy(e.target.value)}
@@ -2244,7 +2289,7 @@
                         
                         {/* Filter Options */}
                         {showFilters && (
-                            <div className="px-4 pb-3 border-t">
+                            <div className="max-w-6xl mx-auto px-4 pb-3 border-t">
                                 <div className="flex space-x-4 mt-3">
                                     <label className="flex items-center">
                                         <input 
@@ -2279,20 +2324,22 @@
                     </div>
                     
                     {/* Menu Items */}
-                    <div className="p-4">
+                    <div className="max-w-6xl mx-auto p-4">
                         {filteredItems.length === 0 ? (
                             <div className="text-center py-8 text-gray-500">
                                 <Icon name="utensils" className="text-4xl mb-2" />
                                 <p>No items found</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                 {filteredItems.map(item => (
                                     <MenuItem 
                                         key={item.id} 
                                         item={item} 
                                         onAddToCart={onAddToCart}
                                         onViewDetails={onViewDetails}
+                                        onToggleFavorite={handleToggleFavorite}
+                                        isFavorite={isItemFavorite(item)}
                                     />
                                 ))}
                             </div>
@@ -2312,6 +2359,147 @@
                             </span>
                         )}
                     </button>
+                </div>
+            );
+        };
+        
+        // Favorites Component
+        const Favorites = ({ onBack, onAddToCart, onViewDetails }) => {
+            const [favorites, setFavorites] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+            const [sortBy, setSortBy] = React.useState('recently-added');
+            
+            React.useEffect(() => {
+                // Load favorites from localStorage
+                const savedFavorites = storage.get('favorites', []);
+                setFavorites(savedFavorites);
+                setLoading(false);
+            }, []);
+            
+            // Save favorites to localStorage whenever they change
+            React.useEffect(() => {
+                storage.set('favorites', favorites);
+            }, [favorites]);
+            
+            const handleRemoveFavorite = (itemId) => {
+                setFavorites(favorites.filter(fav => fav.id !== itemId));
+            };
+            
+            const handleToggleFavorite = (item) => {
+                handleRemoveFavorite(item.id);
+            };
+            
+            const getSortedFavorites = () => {
+                const sorted = [...favorites];
+                if (sortBy === 'recently-added') {
+                    sorted.sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
+                } else if (sortBy === 'name') {
+                    sorted.sort((a, b) => a.name.localeCompare(b.name));
+                } else if (sortBy === 'price-low-high') {
+                    sorted.sort((a, b) => a.price - b.price);
+                } else if (sortBy === 'price-high-low') {
+                    sorted.sort((a, b) => b.price - a.price);
+                }
+                return sorted;
+            };
+            
+            const sortedFavorites = getSortedFavorites();
+            
+            if (loading) {
+                return <Loading />;
+            }
+            
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <Header title="My Favorites" showBack onBackClick={onBack} />
+                    
+                    <div className="max-w-6xl mx-auto p-4">
+                        {favorites.length === 0 ? (
+                            <div className="text-center py-16">
+                                <Icon name="heart" className="text-6xl text-gray-300 mb-4" />
+                                <h2 className="text-2xl font-semibold text-gray-700 mb-2">No Favorites Yet</h2>
+                                <p className="text-gray-500 mb-6">Start adding your favorite items to see them here</p>
+                                <button 
+                                    onClick={() => window.location.hash = '#home'}
+                                    className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors"
+                                >
+                                    Browse Menu
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Sort Options */}
+                                <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-semibold text-gray-800">
+                                            {favorites.length} {favorites.length === 1 ? 'Favorite' : 'Favorites'}
+                                        </h3>
+                                        <select 
+                                            value={sortBy}
+                                            onChange={(e) => setSortBy(e.target.value)}
+                                            className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                        >
+                                            <option value="recently-added">Recently Added</option>
+                                            <option value="name">Name</option>
+                                            <option value="price-low-high">Price: Low to High</option>
+                                            <option value="price-high-low">Price: High to Low</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                {/* Favorites Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                    {sortedFavorites.map(item => (
+                                        <div key={item.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                                            <div className="relative h-40">
+                                                <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                                                <button 
+                                                    onClick={() => handleRemoveFavorite(item.id)}
+                                                    className="absolute top-2 right-2 p-2 rounded-full bg-transparent hover:bg-white/20 transition-colors"
+                                                    aria-label="Remove from favorites"
+                                                >
+                                                    <Icon name="heart" className="text-lg text-red-500 fill-current" />
+                                                </button>
+                                                <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
+                                                    {item.branchName}
+                                                </div>
+                                            </div>
+                                            <div className="p-4">
+                                                <h3 className="font-bold text-lg text-gray-800 mb-1">{item.name}</h3>
+                                                <p className="text-sm text-gray-600 mb-2">{item.category}</p>
+                                                <div className="flex items-center mb-2">
+                                                    <Icon name="star" className="text-yellow-400 mr-1" />
+                                                    <span className="text-sm font-medium">{item.rating}</span>
+                                                    <span className="text-xs text-gray-500 ml-1">({item.reviewCount})</span>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-lg font-bold text-gray-800">
+                                                        {BD_CONTEXT.currencySymbol}{item.price}
+                                                    </span>
+                                                    <div className="flex space-x-2">
+                                                        <button 
+                                                            onClick={() => onViewDetails(item)}
+                                                            className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                                                            aria-label="View details"
+                                                        >
+                                                            <Icon name="infoCircle" className="text-gray-700" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => onAddToCart(item)}
+                                                            className="p-2 rounded-full bg-orange-500 hover:bg-orange-600 text-white transition-colors"
+                                                            aria-label="Add to cart"
+                                                        >
+                                                            <Icon name="plus" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             );
         };
@@ -2460,6 +2648,8 @@
                     setCurrentView('home');
                 } else if (currentView === 'profile') {
                     setCurrentView('home');
+                } else if (currentView === 'favorites') {
+                    setCurrentView('home');
                 } else if (currentView === 'admin') {
                     setCurrentView('home');
                 }
@@ -2472,7 +2662,7 @@
             React.useEffect(() => {
                 const handleHashChange = () => {
                     const hash = window.location.hash.substring(1);
-                    if (hash && ['home', 'menu', 'profile', 'admin'].includes(hash)) {
+                    if (hash && ['home', 'menu', 'profile', 'admin', 'favorites'].includes(hash)) {
                         setCurrentView(hash);
                     }
                 };
@@ -2496,9 +2686,66 @@
             
             return (
                 <div className="min-h-screen bg-gray-50">
+                    {/* Desktop Header Navigation */}
+                    <div className="hidden lg:block bg-white shadow-sm border-b z-40">
+                        <div className="max-w-6xl mx-auto px-4">
+                            <div className="flex justify-between items-center h-16">
+                                <div className="flex items-center space-x-8">
+                                    <h1 className="text-xl font-bold text-gray-800">Smart QR Menu</h1>
+                                    <nav className="flex space-x-6">
+                                        <button 
+                                            onClick={() => setCurrentView('home')}
+                                            className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${currentView === 'home' ? 'text-orange-500 bg-orange-50' : 'text-gray-600 hover:text-gray-900'}`}
+                                        >
+                                            <Icon name="home" className="mr-2" />
+                                            Home
+                                        </button>
+                                        <button 
+                                            onClick={() => setCurrentView('favorites')}
+                                            className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${currentView === 'favorites' ? 'text-orange-500 bg-orange-50' : 'text-gray-600 hover:text-gray-900'}`}
+                                        >
+                                            <Icon name="heart" className="mr-2" />
+                                            Favorites
+                                        </button>
+                                        <button 
+                                            onClick={() => setShowCart(true)}
+                                            className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900 relative"
+                                        >
+                                            <Icon name="shoppingCart" className="mr-2" />
+                                            Cart
+                                            {cartItemsCount > 0 && (
+                                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                                                    {cartItemsCount}
+                                                </span>
+                                            )}
+                                        </button>
+                                        <button 
+                                            onClick={() => setCurrentView('profile')}
+                                            className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${currentView === 'profile' ? 'text-orange-500 bg-orange-50' : 'text-gray-600 hover:text-gray-900'}`}
+                                        >
+                                            <Icon name="user" className="mr-2" />
+                                            Profile
+                                        </button>
+                                    </nav>
+                                </div>
+                                <div className="flex items-center">
+                                    <LanguageToggle />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     {/* Render current view */}
                     {currentView === 'home' && (
                         <Home onBranchSelect={handleBranchSelect} />
+                    )}
+                    
+                    {currentView === 'favorites' && (
+                        <Favorites 
+                            onBack={handleBack}
+                            onAddToCart={handleAddToCart}
+                            onViewDetails={handleViewItemDetails}
+                        />
                     )}
                     
                     {currentView === 'menu' && selectedBranchId && (
@@ -2543,9 +2790,9 @@
                         />
                     )}
                     
-                    {/* Bottom Navigation */}
+                    {/* Bottom Navigation - Mobile Only */}
                     {currentView === 'home' && (
-                        <div className="fixed bottom-0 left-0 right-0 bg-white border-t z-30">
+                        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t z-30">
                             <div className="flex justify-around py-2">
                                 <button 
                                     onClick={() => setCurrentView('home')}
