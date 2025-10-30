@@ -799,7 +799,7 @@
         // Item Detail Modal Component
         const ItemDetailModal = ({ item, isOpen, onClose, onAddToCart }) => {
             const [quantity, setQuantity] = React.useState(1);
-            const [selectedVariant, setSelectedVariant] = React.useState(item.variants ? item.variants[0] : null);
+            const [selectedVariant, setSelectedVariant] = React.useState((item && item.variants && item.variants.length > 0) ? item.variants[0] : null);
             const [selectedAddons, setSelectedAddons] = React.useState([]);
             
             if (!isOpen || !item) return null;
@@ -952,7 +952,7 @@
             const [contactNumber, setContactNumber] = React.useState('');
             
             const calculateSubtotal = () => {
-                return items.reduce((total, item) => total + item.totalPrice, 0);
+                return items.reduce((total, item) => total + (item.totalPrice || 0), 0);
             };
             
             const calculateTax = () => {
@@ -1086,19 +1086,19 @@
                                                 )}
                                                 <div className="flex items-center justify-between mt-2">
                                                     <span className="font-medium text-orange-500">
-                                                        {BD_CONTEXT.currencySymbol}{item.totalPrice}
+                                                        {BD_CONTEXT.currencySymbol}{(item.totalPrice || 0).toFixed(2)}
                                                     </span>
                                                     <div className="flex items-center">
                                                         <button 
-                                                            onClick={() => onUpdateQuantity(index, item.quantity - 1)}
+                                                            onClick={() => onUpdateQuantity(index, (item.quantity || 1) - 1)}
                                                             className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
                                                             aria-label="Decrease quantity"
                                                         >
                                                             <Icon name="minus" className="text-xs text-gray-700" />
                                                         </button>
-                                                        <span className="mx-2 text-sm font-medium">{item.quantity}</span>
+                                                        <span className="mx-2 text-sm font-medium">{item.quantity || 1}</span>
                                                         <button 
-                                                            onClick={() => onUpdateQuantity(index, item.quantity + 1)}
+                                                            onClick={() => onUpdateQuantity(index, (item.quantity || 1) + 1)}
                                                             className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
                                                             aria-label="Increase quantity"
                                                         >
@@ -1333,10 +1333,8 @@
                     orders.push(order);
                     storage.set('orders', orders);
                     
-                    // Save user profile if requested
-                    if (saveProfile) {
-                        storage.set('userProfile', userProfile);
-                    }
+                    // Save user profile automatically when order is placed
+                    storage.set('userProfile', userProfile);
                     
                     // Clear cart
                     storage.set('cart', []);
@@ -1356,8 +1354,8 @@
                             <div className="space-y-2">
                                 {orderData.items.map((item, index) => (
                                     <div key={index} className="flex justify-between text-sm">
-                                        <span>{item.name} x {item.quantity}</span>
-                                        <span>{BD_CONTEXT.currencySymbol}{item.totalPrice}</span>
+                                        <span>{item.name} x {item.quantity || 1}</span>
+                                        <span>{BD_CONTEXT.currencySymbol}{(item.totalPrice || 0).toFixed(2)}</span>
                                     </div>
                                 ))}
                                 <div className="flex justify-between font-bold pt-2 border-t">
@@ -1581,8 +1579,8 @@
                             <div className="space-y-2">
                                 {order.items.map((item, index) => (
                                     <div key={index} className="flex justify-between text-sm">
-                                        <span>{item.name} x {item.quantity}</span>
-                                        <span>{BD_CONTEXT.currencySymbol}{item.totalPrice}</span>
+                                        <span>{item.name} x {item.quantity || 1}</span>
+                                        <span>{BD_CONTEXT.currencySymbol}{(item.totalPrice || 0).toFixed(2)}</span>
                                     </div>
                                 ))}
                                 <div className="flex justify-between font-bold pt-2 border-t">
@@ -2074,12 +2072,12 @@
                                             {selectedOrder.items.map((item, index) => (
                                                 <div key={index} className="flex justify-between text-sm">
                                                     <div>
-                                                        <span>{item.name} x {item.quantity}</span>
+                                                        <span>{item.name} x {item.quantity || 1}</span>
                                                         {item.variant && (
                                                             <span className="text-gray-600 ml-1">({item.variant.name})</span>
                                                         )}
                                                     </div>
-                                                    <span>{BD_CONTEXT.currencySymbol}{item.totalPrice}</span>
+                                                    <span>{BD_CONTEXT.currencySymbol}{(item.totalPrice || 0).toFixed(2)}</span>
                                                 </div>
                                             ))}
                                             <div className="flex justify-between font-bold pt-2 border-t">
@@ -2332,10 +2330,23 @@
             const [toastMessage, setToastMessage] = React.useState('');
             const [toastType, setToastType] = React.useState('success');
             
+            // Helper function to calculate item price
+            const calculateItemPrice = (item) => {
+                const basePrice = item.variant ? item.variant.price : (item.price || 0);
+                const addonsPrice = (item.addons || []).reduce((total, addon) => total + (addon.price || 0), 0);
+                return (basePrice + addonsPrice) * (item.quantity || 1);
+            };
+            
             // Load cart from localStorage on mount
             React.useEffect(() => {
                 const savedCart = storage.get('cart', []);
-                setCart(savedCart);
+                // Repair any cart items that might be missing required properties
+                const repairedCart = savedCart.map(item => ({
+                    ...item,
+                    quantity: item.quantity || 1,
+                    totalPrice: item.totalPrice || calculateItemPrice(item)
+                }));
+                setCart(repairedCart);
             }, []);
             
             // Save cart to localStorage whenever it changes
@@ -2352,6 +2363,13 @@
             
             // Handle adding item to cart
             const handleAddToCart = (item) => {
+                // Ensure item has required properties
+                const cartItem = {
+                    ...item,
+                    quantity: item.quantity || 1,
+                    totalPrice: item.totalPrice || calculateItemPrice(item)
+                };
+                
                 // Check if item already exists in cart
                 const existingItemIndex = cart.findIndex(
                     cartItem => 
@@ -2364,12 +2382,12 @@
                 if (existingItemIndex !== -1) {
                     // Update quantity of existing item
                     const updatedCart = [...cart];
-                    updatedCart[existingItemIndex].quantity += item.quantity;
-                    updatedCart[existingItemIndex].totalPrice += item.totalPrice;
+                    updatedCart[existingItemIndex].quantity += cartItem.quantity;
+                    updatedCart[existingItemIndex].totalPrice += cartItem.totalPrice;
                     setCart(updatedCart);
                 } else {
                     // Add new item to cart
-                    setCart([...cart, item]);
+                    setCart([...cart, cartItem]);
                 }
                 
                 // Show toast notification
@@ -2393,6 +2411,18 @@
                 
                 const updatedCart = [...cart];
                 const item = updatedCart[index];
+                
+                // Ensure item has required properties with defaults
+                if (!item.quantity || item.quantity <= 0) {
+                    item.quantity = 1;
+                }
+                if (!item.totalPrice || item.totalPrice <= 0) {
+                    // Calculate base price from variant or original price
+                    const basePrice = item.variant ? item.variant.price : (item.price || 0);
+                    const addonsPrice = (item.addons || []).reduce((total, addon) => total + (addon.price || 0), 0);
+                    item.totalPrice = (basePrice + addonsPrice) * item.quantity;
+                }
+                
                 const unitPrice = item.totalPrice / item.quantity;
                 item.quantity = newQuantity;
                 item.totalPrice = unitPrice * newQuantity;
